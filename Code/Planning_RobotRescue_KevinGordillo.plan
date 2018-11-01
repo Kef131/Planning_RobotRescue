@@ -1,0 +1,113 @@
+%Planning of Robot Rescue-By Kevin Gordillo
+%Planeacion de Robot Rescate -Por Kevin Gordillo
+
+
+fluents:
+	orientacion_objeto(O, C) requires objeto(O), cardinalidad(A).	%Necesario para orientar al robot hacia donde debe moverse
+	pocision_objeto(O, L) requires objeto(O), lugar(L). 			%Propiedad que le otorga el conocimiento de saber su pocision dentro del problema
+	pinza_lista(P) requires pinza(P).								%Partes del robot que sirven para tomar la capsula
+	tener_capsula.													%Estado necesario para indicar a las pinzas si tienen la capsula
+	capsula_asegurada.												%Estado en donde la capsula a sido asegura y la mision a quedado satisfecha	
+	
+actions:
+	girar_objeto(O,C) requires objeto(O), cardinalidad(C).			%Accion mediante la cual se cambia la orientacion de los objetos
+	mover_hacia(O, L) requires objeto(O), lugar(L).					%Accion mediante la cual se mueve el robot en el problema
+	desplegar_pinza(P) requires pinza(P).							%Accion mediante la cual se despliegan las pinzas en paralelo haciendo concurrencia con las pinzas
+	reincorporar_pinza(P) requires pinza(P).						%Accion mediante la cual se reincorporan las pinzas en paralelo haciendo concurrencia con las pinzas
+	capturar_capsula.												%Accion en donde se da la orden de capturar la capsula si las pinzas estan listas
+	soltar_capsula.													%Accion que finaliza la mision de rescate, soltando al capsula en el area segura.
+
+	%Reglas de Causalidad y condiciones de ejecucion
+always:
+	%GIRAR - SIN CAPSULA
+	caused orientacion_objeto(robot, L) after girar_objeto(robot,L), not tener_capsula. %la orientacion cambia si giramos el robot
+	caused -orientacion_objeto(robot, L) after girar_objeto(robot,L1), orientacion_objeto(robot, L), not tener_capsula.
+	executable girar_objeto(robot, L1)	if orientacion_objeto(robot,L), orientacion_objeto(capsula, L1),L<>L1, not tener_capsula. %solo se ejectua el girar si las orientaciones son diferentes
+	nonexecutable girar_objeto(robot,P) if girar_objeto(robot,P1), P<>P1, not tener_capsula.
+	nonexecutable girar_objeto(robot,P) if mover_hacia(robot,L), not tener_capsula.  %No puedes girar y moverte al mismo tiempo
+	
+	%MOVER ROBOT -- SIN CAPSULA	
+	caused pocision_objeto(robot, L) after mover_hacia(robot, L),not tener_capsula. %la pocision cambia si se mueve el robot
+	caused -pocision_objeto(robot, L) after  mover_hacia(robot, L1), pocision_objeto(robot, L), L<>L1,not tener_capsula.
+	executable mover_hacia(robot,P) if not pocision_objeto(robot, P), not tener_capsula. 
+	nonexecutable mover_hacia(robot,P) if orientacion_objeto(robot,L), orientacion_objeto(capsula, L1), L<>L1.
+	nonexecutable mover_hacia(robot,P) if girar_objeto(robot, L). %No puedes  avanzar y girar
+
+	
+	%DESPLEGARSE PINZAS -- PARALELAMENTE
+	%se despliegan las pinzas si no se tiene la capsula, las pinzas no estan listas y la capsula y el robot estan en el mismo lugar
+	executable desplegar_pinza(P) if pocision_objeto(robot, L), pocision_objeto(capsula,L), not tener_capsula, not pinza_lista(I), not pinza_lista(D). 
+	nonexecutable desplegar_pinza(P) if girar_objeto(robot, C).
+	nonexecutable desplegar_pinza(P) if mover_hacia(robot,L).
+	nonexecutable desplegar_pinza(P) if pinza_lista(izq), pinza_lista(der).
+	nonexecutable desplegar_pinza(P) if capturar_capsula.
+	nonexecutable desplegar_pinza(P) if tener_capsula.
+	caused pinza_lista(P) after desplegar_pinza(P).
+	
+	%CAPTURAR OBJETO
+	caused tener_capsula after capturar_capsula.
+	executable capturar_capsula if pinza_lista(I), pinza_lista(D), I<>D. %Si las pinzas estan listas se procede a capturar la capsula
+	nonexecutable capturar_capsula if mover_hacia(O,L).
+	nonexecutable capturar_capsula if girar_objeto(O,C).
+	nonexecutable capturar_capsula if desplegar_pinza(P).
+	nonexecutable capturar_capsula if not pinza_lista(I), not pinza_lista(D).
+	
+	%GIRAR A ZONA DE DESPLEGARSE -- CON CAPSULA
+	caused orientacion_objeto(robot, L) after girar_objeto(robot, L), tener_capsula.
+	caused -orientacion_objeto(robot, L) after girar_objeto(robot, L1),  orientacion_objeto(robot, L), tener_capsula.
+	caused orientacion_objeto(capsula, L) after girar_objeto(robot, L), tener_capsula.
+	caused -orientacion_objeto(capsula, L) after girar_objeto(robot, L1),  orientacion_objeto(capsula, L), tener_capsula.
+	executable girar_objeto(robot, L1)	if orientacion_objeto(robot,L), orientacion_objeto(basedespliegue, L1), L<>L1, tener_capsula.%Se toma como referencia la zona de despliegue para regresar
+	nonexecutable girar_objeto(robot,P) if girar_objeto(robot,P1), P<>P1.
+	nonexecutable girar_objeto(robot,P) if mover_hacia(robot,L). %NO GIRAR NI MOVER AL MISMO TIEMPO
+	
+	
+	%MOVERSE A ZONA DE DESPLEGARSE -- CON CAPSULA
+	caused pocision_objeto(robot, L) after mover_hacia(robot, L), tener_capsula.
+	caused -pocision_objeto(robot, L) after  mover_hacia(robot, L1), pocision_objeto(robot, L), L<>L1, tener_capsula.
+	caused pocision_objeto(capsula, L) after mover_hacia(robot, L), tener_capsula.
+	caused -pocision_objeto(capsula, L) after tener_capsula, mover_hacia(robot, L1),  pocision_objeto(capsula, L), L<>L1.
+	executable mover_hacia(robot,P) if not pocision_objeto(robot, P),  tener_capsula. 
+	nonexecutable mover_hacia(robot,P) if orientacion_objeto(robot,L), orientacion_objeto(basedespliegue, L1), L<>L1, tener_capsula. %Se toma como referencia la zona de despliegue para regresar
+
+	%SOLTAR CAPSULA
+	caused -tener_capsula after soltar_capsula.
+	caused capsula_asegurada after soltar_capsula.
+	executable soltar_capsula if pocision_objeto(capsula, area_segura), tener_capsula.
+	nonexecutable soltar_capsula if mover_hacia(robot, L).
+	nonexecutable soltar_capsula if girar_objeto(robot, L).
+	nonexecutable soltar_capsula if capturar_capsula.
+	
+	%REINCORPORAR PINZAS -- PARALELAMENTE
+	caused -pinza_lista(P) after reincorporar_pinza(P).
+	executable reincorporar_pinza(P) if capsula_asegurada, pocision_objeto(robot, area_segura), not tener_capsula, pinza_lista(I), pinza_lista(D), I<>D.
+	nonexecutable reincorporar_pinza(P) if girar_objeto(robot, C).
+	nonexecutable reincorporar_pinza(P) if mover_hacia(robot,L).
+	nonexecutable reincorporar_pinza(P) if  not pinza_lista(izq), not pinza_lista(der).
+	nonexecutable reincorporar_pinza(P) if  capturar_capsula.
+	
+	%PROHIBIMOS DE POCISION DE BASE DESPLIEGUE 
+	%Impedimos que las propiedades de la base de despligue cambien en el proceso del problema.
+	forbidden not pocision_objeto(basedespliegue,area_segura). 
+	forbidden not orientacion_objeto(basedespliegue,norte).
+
+	%INERCIAS: Asumimos que los sigueintes fluentes permancen sin cambio por default.
+	inertial orientacion_objeto(O,L). 	
+	inertial pocision_objeto(O,L).  
+	inertial pinza_lista(P).
+	inertial tener_capsula.
+	inertial capsula_asegurada.
+	
+	%Restricciones del estado inicial
+initially:
+	-capsula_asegurada.
+	-tener_capsula.
+	pocision_objeto(capsula,centro_area_toxica).
+	orientacion_objeto(capsula, sur).
+	pocision_objeto(robot,area_segura).
+	orientacion_objeto(robot, norte).
+	pocision_objeto(basedespliegue,area_segura).
+	orientacion_objeto(basedespliegue, norte).
+	
+	%El objetivo estara resuleto cuando la capsula este asegurada y el robot vuelva a su estado inicial en 8 estados
+goal: capsula_asegurada, -pinza_lista(izq),-pinza_lista(der) ? (8) 

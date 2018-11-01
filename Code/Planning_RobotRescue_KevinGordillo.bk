@@ -1,0 +1,13 @@
+%Background Knowledge: Este es un modelo sencillo, defino el tipo de informacion y el conocimiento estatico.
+
+%Solo existen tres areas en este problema
+objeto(robot). objeto(capsula). objeto(basedespliegue).
+
+%Se implementan solo dos de los los cuatro puntos cardinalidades basicos
+cardinalidad(sur).cardinalidad(norte).
+
+%Dos areas en el problema
+lugar(centro_area_toxica). lugar(area_segura).
+
+%Pinzas que usa el robot para tomar la capsula
+pinza(izq). pinza(der).
